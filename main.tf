@@ -75,7 +75,7 @@ resource "aws_route_table" "public_rt" {
 resource "aws_route_table_association" "public_assoc" {
   subnet_id      = aws_subnet.public_subnet.id
   route_table_id = aws_route_table.public_rt.id
-} 
+}
 resource "aws_security_group" "pipeline_sg" {
   name        = "pipeline-sg"
   description = "Security group for Jenkins Pipeline EC2"
@@ -123,7 +123,7 @@ resource "aws_instance" "pipeline_ec2" {
   subnet_id              = aws_subnet.public_subnet.id
   vpc_security_group_ids = [aws_security_group.pipeline_sg.id]
 
-  key_name = "devops-key"   # ✅ correct key name
+  key_name = "devops-key" # ✅ correct key name
 
   associate_public_ip_address = true
 
@@ -131,4 +131,18 @@ resource "aws_instance" "pipeline_ec2" {
     Name = "pipeline-ec2"
   }
 }
+############################
+# ECR Repository
+############################
 
+resource "aws_ecr_repository" "app_repo" {
+  name = "devops-app"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  tags = {
+    Name = "devops-app"
+  }
+}

@@ -274,3 +274,111 @@ resource "aws_lb_listener" "app_listener" {
     target_group_arn = aws_lb_target_group.app_tg.arn
   }
 }
+############################
+# ECS Cluster
+############################
+
+resource "aws_ecs_cluster" "app_cluster" {
+  name = "devops-app-cluster"
+}
+
+############################
+# ECS Task Execution Role
+############################
+
+resource "aws_iam_role" "ecs_task_execution_role" {
+  name = "ecsTaskExecutionRole"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "ecs-tasks.amazonaws.com"
+      }
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
+  role       = aws_iam_role.ecs_task_execution_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+}
+
+############################
+# ECS Task Definition
+############################
+
+resource "aws_ecs_task_definition" "app_task" {
+  family                   = "devops-app"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+
+  cpu    = "256"
+  memory = "512"
+
+  execution_role_arn = aws_iam_role.ecs_task_execution_role.arn
+
+  container_definitions = jsonencode([
+    {
+      name  = "devops-app"
+      image = "559846026467.dkr.ecr.ap-south-1.amazonaws.com/devops-app:v1"
+
+      essential = true
+
+      portMappings = [
+        {
+          containerPort = 3000
+          hostPort      = 3000
+        }
+      ]
+    }
+  ])
+}
+
+############################
+# ECS Service
+############################
+
+resource "aws_ecs_service" "app_service" {
+  name            = "devops-app-service"
+  cluster         = aws_ecs_cluster.app_cluster.id
+  task_definition = aws_ecs_task_definition.app_task.arn
+  launch_type     = "FARGATE"
+
+  desired_count = 1
+
+  network_configuration {
+    subnets = [
+      aws_subnet.public_subnet.id,
+      aws_subnet.public_subnet_2.id
+    ]
+
+    security_groups  = [aws_security_group.ecs_sg.id]
+    assign_public_ip = true
+  }
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.app_tg.arn
+    container_name   = "devops-app"
+    container_port   = 3000
+  }
+
+  depends_on = [aws_lb_listener.app_listener]
+}
+############################
+# Frontend S3 Bucket
+############################
+
+resource "aws_s3_bucket" "frontend_bucket" {
+  bucket = "devops-frontend-prathush-2026"
+}
+
+resource "aws_s3_bucket_website_configuration" "frontend_website" {
+  bucket = aws_s3_bucket.frontend_bucket.id
+
+  index_document {
+    suffix = "index.html"
+  }
+}

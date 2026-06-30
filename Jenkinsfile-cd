@@ -1,0 +1,25 @@
+pipeline {
+    agent any
+
+    environment {
+        AWS_REGION = 'ap-south-1'
+        CLUSTER_NAME = 'devops-app-cluster'
+        SERVICE_NAME = 'devops-app-service'
+    }
+
+    stages {
+
+        stage('Deploy to ECS') {
+            steps {
+                sh '''
+                aws ecs update-service \
+                  --cluster ${CLUSTER_NAME} \
+                  --service ${SERVICE_NAME} \
+                  --force-new-deployment \
+                  --region ${AWS_REGION}
+                '''
+            }
+        }
+
+    }
+}

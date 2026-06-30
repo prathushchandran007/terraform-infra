@@ -25,7 +25,16 @@ resource "aws_subnet" "public_subnet" {
     Name = "public-subnet"
   }
 }
+resource "aws_subnet" "public_subnet_2" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.3.0/24"
+  availability_zone       = "ap-south-1b"
+  map_public_ip_on_launch = true
 
+  tags = {
+    Name = "public-subnet-2"
+  }
+}
 ############################
 # PRIVATE SUBNET
 ############################
@@ -67,13 +76,16 @@ resource "aws_route_table" "public_rt" {
     Name = "public-route-table"
   }
 }
-
 ############################
 # ROUTE TABLE ASSOCIATION
 ############################
 
 resource "aws_route_table_association" "public_assoc" {
   subnet_id      = aws_subnet.public_subnet.id
+  route_table_id = aws_route_table.public_rt.id
+}
+resource "aws_route_table_association" "public_assoc_2" {
+  subnet_id      = aws_subnet.public_subnet_2.id
   route_table_id = aws_route_table.public_rt.id
 }
 resource "aws_security_group" "pipeline_sg" {
@@ -109,6 +121,13 @@ resource "aws_security_group" "pipeline_sg" {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  ingress {
+    description = "Grafana"
+    from_port   = 3000
+    to_port     = 3000
+    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 

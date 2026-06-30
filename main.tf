@@ -165,3 +165,112 @@ resource "aws_ecr_repository" "app_repo" {
     Name = "devops-app"
   }
 }
+############################
+# ALB Security Group
+############################
+
+resource "aws_security_group" "alb_sg" {
+  name        = "alb-sg"
+  description = "Security Group for ALB"
+  vpc_id      = aws_vpc.main.id
+
+  ingress {
+    description = "HTTP"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "alb-sg"
+  }
+}
+
+############################
+# ECS Security Group
+############################
+
+resource "aws_security_group" "ecs_sg" {
+  name        = "ecs-sg"
+  description = "Security Group for ECS Tasks"
+  vpc_id      = aws_vpc.main.id
+
+  ingress {
+    description     = "Traffic from ALB"
+    from_port       = 3000
+    to_port         = 3000
+    protocol        = "tcp"
+    security_groups = [aws_security_group.alb_sg.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "ecs-sg"
+  }
+}
+
+############################
+# Application Load Balancer
+############################
+
+resource "aws_lb" "app_alb" {
+  name               = "devops-app-alb"
+  internal           = false
+  load_balancer_type = "application"
+
+  security_groups = [aws_security_group.alb_sg.id]
+
+  subnets = [
+    aws_subnet.public_subnet.id,
+    aws_subnet.public_subnet_2.id
+  ]
+
+  tags = {
+    Name = "devops-app-alb"
+  }
+}
+
+############################
+# Target Group
+############################
+
+resource "aws_lb_target_group" "app_tg" {
+  name        = "devops-app-tg"
+  port        = 3000
+  protocol    = "HTTP"
+  target_type = "ip"
+  vpc_id      = aws_vpc.main.id
+
+  health_check {
+    path = "/"
+  }
+}
+
+############################
+# Listener
+############################
+
+resource "aws_lb_listener" "app_listener" {
+  load_balancer_arn = aws_lb.app_alb.arn
+  port              = 80
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.app_tg.arn
+  }
+}
